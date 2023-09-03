@@ -6,7 +6,7 @@ from dotenv.main import load_dotenv
 import telebot
 import asyncio
 from telebot.async_telebot import AsyncTeleBot
-import sqlite3
+import mysql.connector
 import datetime
 from threading import Thread
 import schedule
@@ -14,6 +14,8 @@ from time import sleep
 
 load_dotenv()
 token = os.environ['TOKEN']
+user = os.environ['USER_DB']
+password = os.environ['PASSWORD']
 
 API = 'https://www.1secmail.com/api/v1/'
 domain_list = [
@@ -28,19 +30,24 @@ domain_list = [
 domain = random.choice(domain_list)
 
 
-connect = sqlite3.connect('base.db')  # Database creation
+connect = mysql.connector.connect(
+    host="127.0.0.1",
+    user=user,
+    password=password,
+    database="temp_mail"
+)
 cursor = connect.cursor()
 
 cursor.execute("""CREATE TABLE IF NOT EXISTS used_mails(
-   id INTEGER NOT NULL PRIMARY KEY,
-   name INT NOT NULL,
+   id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+   name BIGINT NOT NULL,
    mail TEXT,
    date DATETIME
    );
 """)
 
 cursor.execute("""CREATE TABLE IF NOT EXISTS users(
-   id INT NOT NULL PRIMARY KEY,
+   id BIGINT NOT NULL PRIMARY KEY,
    date DATETIME
    );
 """)
@@ -50,17 +57,12 @@ bot = AsyncTeleBot(token)
 
 
 def delete_old_records():
-    # Подключение к базе данных
-    connect = sqlite3.connect('base.db')  # Database creation
-    cursor = connect.cursor()
-
     # Вычисление времени удаления
     delete_time = datetime.datetime.now() - datetime.timedelta(hours=2)
 
     # Выполнение запроса DELETE
-    cursor.execute("DELETE FROM used_mails WHERE date < ?", (delete_time,))
+    cursor.execute("DELETE FROM used_mails WHERE date < %s", ((delete_time,)))
     connect.commit()
-    connect.close()
 
 
 def generate_username():
@@ -81,7 +83,7 @@ def delete_mail_t(mail=''):
 
     _ = requests.post(url, data=data)
 
-    cursor.execute("DELETE FROM used_mails WHERE mail = ?", (mail,))
+    cursor.execute("DELETE FROM used_mails WHERE mail = %s", ((mail,)))
     connect.commit()
 
 
@@ -123,8 +125,8 @@ async def check_mail_t(message, mail=''):
 async def start(message, res=False):
     await bot.send_message(message.chat.id, 'Hello')
     try:
-        cursor.execute("INSERT INTO users VALUES(?, ?)",
-                       (message.chat.id, datetime.datetime.now()))
+        cursor.execute("INSERT INTO users (id, date) VALUES (%s, %s)",
+                       ((message.chat.id, datetime.datetime.now())))
         connect.commit()
     except Exception:
         pass
@@ -151,8 +153,9 @@ async def create_mail(message):
     _ = requests.get(f'{API}?login=\
 {mail.split("@")[0]}&domain={mail.split("@")[1]}')
     await bot.send_message(message.chat.id, f'[+] Ваш почтовый адрес: {mail}')
-    cursor.execute("INSERT INTO used_mails(name, mail, date) VALUES(?, ?, ?)",
-                   (message.chat.id, mail, datetime.datetime.now()))
+    cursor.execute(
+        "INSERT INTO used_mails(name, mail, date) VALUES(%s, %s, %s)",
+        ((message.chat.id, mail, datetime.datetime.now())))
     connect.commit()
 
 
@@ -196,7 +199,7 @@ async def answer(call):
         await check_mail_t(call.message, result[1])
     elif result[0] == '1':
         delete_mail_t(result[1])
-        await bot.send_message(call.message.chat.id, f'{result[1]}, удалён')
+        await bot.send_message(call.message.chat.id, f'{result[1]}, удалена')
 
 
 def schedule_checker():

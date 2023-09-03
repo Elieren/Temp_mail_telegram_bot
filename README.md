@@ -4,6 +4,8 @@ Bot for creating temporary emails and receiving messages
 .env.example
 ```
 TOKEN = Enter the TOKEN of the telegram bot
+USER_DB = user mysql
+PASSWORD = password mysql
 ```
 
 # Start
@@ -22,5 +24,5 @@ docker build . -t temp-mail
 ```
 
 ```
-docker run -d temp-mail
+docker run -d --network=host temp-mail
 ```
