@@ -47,7 +47,7 @@ pipeline {
         stage('Deploy New Container') {
             steps {
                 echo "# Запускаем новый контейнер"
-                sh "docker run -d --restart unless-stopped --name temp-mail TOKEN=$TOKEN USER_DB=$USER_DB PASSWORD=$PASSWORD ${env.NEW_IMAGE_NAME}"
+                sh "docker run -d --restart unless-stopped --name temp-mail -e TOKEN=$TOKEN -e USER_DB=$USER_DB -e PASSWORD=$PASSWORD ${env.NEW_IMAGE_NAME}"
             }
         }
     }
